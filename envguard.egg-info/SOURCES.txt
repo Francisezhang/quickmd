@@ -1,0 +1,17 @@
+pyproject.toml
+docs/README.md
+envguard/__init__.py
+envguard/main.py
+envguard.egg-info/PKG-INFO
+envguard.egg-info/SOURCES.txt
+envguard.egg-info/dependency_links.txt
+envguard.egg-info/entry_points.txt
+envguard.egg-info/requires.txt
+envguard.egg-info/top_level.txt
+envguard/core/__init__.py
+envguard/core/crypto.py
+envguard/core/vault.py
+envguard/utils/__init__.py
+envguard/utils/scanner.py
+tests/test_crypto.py
+tests/test_vault.py

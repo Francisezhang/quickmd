@@ -1,0 +1,127 @@
+# EnvGuard
+
+**Encrypted .env file backup and sharing for macOS — AES-256-GCM, iCloud sync.**
+
+[![Python](https://img.shields.io/badge/Python-3.9+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
+## Overview
+
+EnvGuard securely backs up your .env files with AES-256-GCM encryption. Never lose sensitive configuration data again.
+
+**Features:**
+- AES-256-GCM encryption
+- PBKDF2-HMAC-SHA256 key derivation (100k iterations)
+- iCloud sync support
+- Team sharing with independent passwords
+- Auto-detect high-risk content (AWS keys, private keys)
+- Warn if .env not in .gitignore
+- Scan for .env files
+
+## Installation
+
+```bash
+cd envguard
+pip install -e .
+```
+
+## Quick Start
+
+```bash
+# Initialize vault
+envguard init
+
+# Add .env file
+envguard add .env
+
+# List all backups
+envguard list
+
+# Get backup content
+envguard get <name>
+
+# Scan for .env files
+envguard scan ~/project
+```
+
+## Commands
+
+### `envguard init`
+
+Initialize vault with master password.
+
+Sets up:
+- Vault directory: `~/.envguard/vault`
+- Manifest: `~/.envguard/manifest.json`
+- Optional iCloud sync
+
+### `envguard add <filepath>`
+
+Add .env file to vault.
+
+Options:
+- `-n, --name`: Entry name/alias
+- `-p, --project`: Project name
+
+### `envguard list`
+
+List all vault entries (no plaintext shown).
+
+### `envguard get <name_or_id>`
+
+Decrypt and retrieve entry.
+
+Options:
+- `-o, --output`: Save to file
+- `--stdout`: Print to terminal
+
+### `envguard scan <directory>`
+
+Scan directory for .env files.
+
+Shows:
+- File path
+- Variables count
+- High-risk warnings
+- .gitignore status
+
+### `envguard share <name>`
+
+Create shareable package with independent password.
+
+The share password is separate from master password, safe for team sharing.
+
+### `envguard delete <name_or_id>`
+
+Delete entry from vault.
+
+### `envguard sync`
+
+Sync vault to iCloud.
+
+## Security
+
+- **Encryption**: AES-256-GCM
+- **Key Derivation**: PBKDF2-HMAC-SHA256, 100,000 iterations
+- **Password Input**: Uses `getpass` (no echo)
+- **No Plaintext Storage**: Master password never stored
+
+## Storage
+
+- Vault: `~/.envguard/vault/*.enc`
+- Manifest: `~/.envguard/manifest.json`
+- iCloud: `~/Library/Mobile Documents/com~apple~CloudDocs/envguard/`
+
+## Requirements
+
+- Python 3.9+
+- macOS
+- cryptography library
+
+## License
+
+MIT License
+
+---
+
+**Made by [Francisezhang](https://github.com/Francisezhang)**
