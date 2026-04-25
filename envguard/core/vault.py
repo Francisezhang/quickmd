@@ -1,18 +1,145 @@
-"""Vault management for .env backups."""
+"""Vault management for .env backups - Cross-platform sync support."""
 
 import json
+import platform
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, List
 import uuid
+
+# Platform detection
+CURRENT_PLATFORM = platform.system()
+IS_MACOS = CURRENT_PLATFORM == "Darwin"
+IS_WINDOWS = CURRENT_PLATFORM == "Windows"
+IS_LINUX = CURRENT_PLATFORM == "Linux"
 
 # Paths
 ENVGUARD_DIR = Path.home() / ".envguard"
 VAULT_DIR = ENVGUARD_DIR / "vault"
 MANIFEST_FILE = ENVGUARD_DIR / "manifest.json"
 
-# iCloud sync path (optional)
-ICLOUD_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "envguard"
+# Platform-specific sync paths
+if IS_MACOS:
+    # macOS: iCloud
+    SYNC_DIR = Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "envguard"
+elif IS_WINDOWS:
+    # Windows: OneDrive
+    SYNC_DIR = Path.home() / "OneDrive" / "envguard"
+else:
+    # Linux: Dropbox or custom
+    SYNC_DIR = Path.home() / "Dropbox" / "envguard" if (Path.home() / "Dropbox").exists() else None
+
+
+def get_sync_dir() -> Optional[Path]:
+    """Get the appropriate sync directory for current platform."""
+    if IS_MACOS:
+        return Path.home() / "Library" / "Mobile Documents" / "com~apple~CloudDocs" / "envguard"
+    elif IS_WINDOWS:
+        return Path.home() / "OneDrive" / "envguard"
+    elif IS_LINUX:
+        # Check common cloud sync locations
+        dropbox = Path.home() / "Dropbox" / "envguard"
+        if dropbox.parent.exists():
+            return dropbox
+        # Alternative: Nextcloud, ownCloud, Google Drive
+        gdrive = Path.home() / "Google Drive" / "envguard"
+        if gdrive.parent.exists():
+            return gdrive
+        return None
+    return None
+
+
+def sync_to_cloud() -> bool:
+    """
+    Sync vault to cloud storage - cross-platform.
+
+    macOS: iCloud
+    Windows: OneDrive
+    Linux: Dropbox/Google Drive (if available)
+
+    Returns:
+        True if sync successful
+    """
+    sync_dir = get_sync_dir()
+    if sync_dir is None:
+        return False
+
+    import shutil
+
+    sync_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy vault files
+    for enc_file in VAULT_DIR.glob("*.enc"):
+        dest = sync_dir / enc_file.name
+        shutil.copy2(enc_file, dest)
+
+    # Copy manifest
+    if MANIFEST_FILE.exists():
+        shutil.copy2(MANIFEST_FILE, sync_dir / "manifest.json")
+
+    return True
+
+
+def sync_from_cloud() -> bool:
+    """
+    Sync vault from cloud storage - cross-platform.
+
+    Returns:
+        True if sync successful
+    """
+    sync_dir = get_sync_dir()
+    if sync_dir is None or not sync_dir.exists():
+        return False
+
+    import shutil
+
+    ensure_dirs()
+
+    # Copy vault files from cloud
+    for enc_file in sync_dir.glob("*.enc"):
+        dest = VAULT_DIR / enc_file.name
+        shutil.copy2(enc_file, dest)
+
+    # Copy manifest if newer
+    cloud_manifest = sync_dir / "manifest.json"
+    if cloud_manifest.exists():
+        if not MANIFEST_FILE.exists():
+            shutil.copy2(cloud_manifest, MANIFEST_FILE)
+        else:
+            # Compare timestamps and use newer
+            import os
+            cloud_time = cloud_manifest.stat().st_mtime
+            local_time = MANIFEST_FILE.stat().st_mtime
+            if cloud_time > local_time:
+                shutil.copy2(cloud_manifest, MANIFEST_FILE)
+
+    return True
+
+
+def get_sync_status() -> dict:
+    """Get sync status and platform info."""
+    sync_dir = get_sync_dir()
+    cloud_name = "Unknown"
+
+    if IS_MACOS:
+        cloud_name = "iCloud"
+    elif IS_WINDOWS:
+        cloud_name = "OneDrive"
+    elif IS_LINUX:
+        if (Path.home() / "Dropbox").exists():
+            cloud_name = "Dropbox"
+        elif (Path.home() / "Google Drive").exists():
+            cloud_name = "Google Drive"
+        else:
+            cloud_name = "None detected"
+
+    return {
+        "platform": CURRENT_PLATFORM,
+        "cloud_service": cloud_name,
+        "sync_dir": str(sync_dir) if sync_dir else None,
+        "sync_available": sync_dir is not None,
+        "last_sync": None,  # Could be tracked in manifest
+    }
 
 
 def ensure_dirs() -> None:
@@ -171,26 +298,12 @@ def create_share_package(entry: Dict, share_password: str) -> str:
 
 def sync_to_icloud() -> bool:
     """
-    Sync vault to iCloud.
+    Sync vault to cloud storage (legacy function name).
 
     Returns:
         True if sync successful
     """
-    if not ICLOUD_DIR.exists():
-        ICLOUD_DIR.mkdir(parents=True, exist_ok=True)
-
-    import shutil
-
-    # Copy vault files
-    for enc_file in VAULT_DIR.glob("*.enc"):
-        dest = ICLOUD_DIR / enc_file.name
-        shutil.copy2(enc_file, dest)
-
-    # Copy manifest
-    if MANIFEST_FILE.exists():
-        shutil.copy2(MANIFEST_FILE, ICLOUD_DIR / "manifest.json")
-
-    return True
+    return sync_to_cloud()
 
 
 def init_vault(master_password: str) -> bool:
